@@ -26,6 +26,7 @@ class IsabelleConnector:
     """
 
     name: str = "lemexp"
+    session_name: Optional[str] = "HOL"
     working_directory: Optional[str] = None
 
     def __post_init__(self):
@@ -45,8 +46,10 @@ class IsabelleConnector:
             logging.FileHandler(os.path.join(self.working_directory, "session.log"))
         )
 
-        # self.session_id = self._client.session_start("HOL")
-        self.session_id = None
+        if self.session_name:
+            self.session_id = self._client.session_start(self.session_name)
+        else:
+            self.session_id = None
 
     @timing
     def use_theories(
@@ -56,14 +59,16 @@ class IsabelleConnector:
         rm_after: bool = True,
         purge_after=True,
         rerun_failed=False,
-        verbose=False,
-        disable_cache=True,
+        enable_cache=True,
         recache=False,
+        verbose=False,
         **kwargs,
     ) -> Dict[str, List[Any]]:
+        master_dir = thys[0].working_directory
+
         @file_cache(
             verbose=verbose,
-            disable=disable_cache,
+            disable=not enable_cache,
             recache=recache,
             ignore_params=["isabelle", "purge_after"],
         )
@@ -72,7 +77,8 @@ class IsabelleConnector:
                 kwargs["watchdog_timeout"] = 120
             res = isabelle._client.use_theories(
                 theories=thys,
-                master_dir=isabelle.working_directory,
+                # master_dir=isabelle.working_directory,
+                master_dir=master_dir,
                 session_id=isabelle.session_id,
                 **kwargs,
             )
@@ -120,7 +126,7 @@ class IsabelleConnector:
                 rerun_failed=False,
                 rm_after=False,
                 purge_after=purge_after,
-                disable_cache=disable_cache,
+                enable_cache=enable_cache,
                 **kwargs,
             )
 
@@ -171,7 +177,6 @@ def parse_ml_value(message):
         return val, True
     except Exception as e:
         return message, False
-
 
 
 def parse_isabelle_response(thys, responses):

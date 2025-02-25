@@ -36,6 +36,7 @@ class Theory:
         self,
     ) -> None:
         content = repr(self)
+        os.makedirs(self.working_directory, exist_ok=True)
         with open(
             os.path.join(self.working_directory, f"{self.name}.thy"),
             "w",

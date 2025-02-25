@@ -25,8 +25,7 @@ def recursive_hash(value, depth=0, ignore_params=[]):
     elif isinstance(value, (list, tuple)):
         return hashlib.md5(
             "".join(
-                [recursive_hash(item, depth + 1, ignore_params)
-                 for item in value]
+                [recursive_hash(item, depth + 1, ignore_params) for item in value]
             ).encode()
         ).hexdigest()
     elif isinstance(value, dict):
@@ -50,7 +49,13 @@ def hash_code(code):
     return hashlib.md5(code.encode()).hexdigest()
 
 
-def file_cache(ignore_params=[], verbose=False, include_source_code=False, disable=False, recache=False):
+def file_cache(
+    ignore_params=[],
+    verbose=False,
+    include_source_code=False,
+    disable=False,
+    recache=False,
+):
     """Decorator to cache function output based on its inputs, ignoring specified parameters.
     Ignore parameters are used to avoid caching on non-deterministic inputs, such as timestamps.
     We can also ignore parameters that are slow to serialize/constant across runs, such as large objects.
@@ -61,10 +66,14 @@ def file_cache(ignore_params=[], verbose=False, include_source_code=False, disab
             if verbose:
                 print("Cache is disabled for function: " + func.__name__)
             return func
-        func_source_code_hash = hash_code(inspect.getsource(func)) if include_source_code else "" 
+        if verbose:
+            print("Cache is enabled for function: " + func.__name__)
+        func_source_code_hash = (
+            hash_code(inspect.getsource(func)) if include_source_code else ""
+        )
 
         def wrapper(*args, **kwargs):
-            cache_dir = "../cache"
+            cache_dir = "../cache/file_cache"
             os.makedirs(cache_dir, exist_ok=True)
 
             # Convert args to a dictionary based on the function's signature
@@ -86,15 +95,19 @@ def file_cache(ignore_params=[], verbose=False, include_source_code=False, disab
                 + func_source_code_hash
             )
             cache_file = os.path.join(
-                cache_dir, f"{func.__module__}_{
-                    func.__name__}_{arg_hash}.pickle"
+                cache_dir, f"{func.__module__}_{func.__name__}_{arg_hash}.pickle"
             )
 
             try:
                 # If cache exists, load and return it
                 if os.path.exists(cache_file) and not recache:
                     if verbose:
-                        print("Used cache for function: " + func.__name__ + " with args: " + str(args_dict))
+                        print(
+                            "Used cache for function: "
+                            + func.__name__
+                            + " with args: "
+                            + str(args_dict)
+                        )
                     with open(cache_file, "rb") as f:
                         return pickle.load(f)
             except Exception:
