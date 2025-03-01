@@ -51,10 +51,9 @@ def hash_code(code):
 
 def file_cache(
     ignore_params=[],
-    verbose=False,
     include_source_code=False,
     disable=False,
-    recache=False,
+    verbose=False,
 ):
     """Decorator to cache function output based on its inputs, ignoring specified parameters.
     Ignore parameters are used to avoid caching on non-deterministic inputs, such as timestamps.
@@ -72,7 +71,7 @@ def file_cache(
             hash_code(inspect.getsource(func)) if include_source_code else ""
         )
 
-        def wrapper(*args, **kwargs):
+        def wrapper(*args, recache=False, **kwargs):
             cache_dir = "../cache/file_cache"
             os.makedirs(cache_dir, exist_ok=True)
 
