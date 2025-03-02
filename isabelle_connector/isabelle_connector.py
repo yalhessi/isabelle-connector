@@ -72,16 +72,13 @@ class IsabelleConnector:
     def use_theories(
         self,
         thys: List[Theory],
-        batch_size=None,
+        batch_size=1,
         rm_if_temp: bool = True,
         **kwargs,
     ) -> Dict[str, List[Any]]:
         for theory in thys:
             if theory.is_temp:
                 theory.write_to_file()
-
-        if not batch_size:
-            batch_size = 1
 
         in_batch_mode = batch_size > 1
         if in_batch_mode:
@@ -123,6 +120,7 @@ class IsabelleConnector:
                     os.remove(thy_path)
                 except Exception as e:
                     print(f"Failed to remove temp files: {e}")
+                    errs[theory.name] = [str(e)]
 
         return results
 
