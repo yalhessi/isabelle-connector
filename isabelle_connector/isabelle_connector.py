@@ -122,7 +122,7 @@ class IsabelleConnector:
                     print(f"Failed to remove temp files: {e}")
                     errs[theory.name] = [str(e)]
 
-        return results
+        return results, errs
 
 
 def batch_thys(theories, batch_size=100):
