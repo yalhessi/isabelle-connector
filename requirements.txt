@@ -1,3 +1,6 @@
-isabelle_client==0.5.2
-loguru==0.7.3
-tqdm==4.67.1
+isabelle_client
+loguru
+tqdm
+pytest
+
+-e .
