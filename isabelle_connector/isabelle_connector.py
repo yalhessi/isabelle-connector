@@ -20,7 +20,7 @@ from isabelle_client.utils import (
 from parallelbar import progress_map
 from tqdm import tqdm
 
-from isabelle_connector.decorators import file_cache, timing
+from isabelle_connector.decorators import timing
 from isabelle_connector.isabelle_theory import Theory
 from isabelle_connector.isabelle_utils import temp_theory
 from isabelle_connector.utils import flatten
