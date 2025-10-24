@@ -1,4 +1,5 @@
 import os
+import warnings
 from typing import Optional
 from uuid import uuid4
 
@@ -23,6 +24,8 @@ def list_theory_files(root_dir):
     import glob
 
     theory_files = glob.glob(os.path.join(root_dir, "**/*.thy"), recursive=True)
+    if not theory_files:
+        warnings.warn(f"No theory files found in {root_dir}")
     return theory_files
 
 
@@ -35,6 +38,7 @@ def temp_theory(**kwargs):
 
 
 def get_theory(theory_file, root_dir):
+    root_dir = str(root_dir) # TODO: is it better to keep root_dir as Path object?
     theory_name = theory_file.removesuffix(".thy").removeprefix(root_dir).strip("/")
     return Theory(
         name=theory_name,

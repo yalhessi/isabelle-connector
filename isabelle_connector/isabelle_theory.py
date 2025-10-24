@@ -1,7 +1,10 @@
+import pickle
 import os
-
-from dataclasses import dataclass, field
+import hashlib
+from dataclasses import dataclass, field, asdict
 from typing import Any, List
+
+from isabelle_client import IsabelleResponse
 
 
 @dataclass
@@ -10,6 +13,8 @@ class Theory:
 
     name: str
     working_directory: str
+    session: str = "HOL"
+    session_id: str = ""
     imports: List[str] = field(default_factory=list)
     queries: List[str] = field(default_factory=list)
     is_temp: bool = False
@@ -43,7 +48,36 @@ class Theory:
             encoding="utf8",
         ) as theory_file:
             theory_file.write(content)
+    
+    def cache_exists(self) -> bool:
+        cache_file_name = f"{self.working_directory}/{self.name}.thy.result"
+        if os.path.exists(cache_file_name):
+            content = repr(self)
+            content_hash = hashlib.sha256(content.encode("utf8")).hexdigest()
+            with open(cache_file_name, "rb") as cache_file:
+                cache_hash = pickle.load(cache_file).strip()
+                # the first line is the hash
+                # cache_hash = cache_file.readline().decode("utf8").strip()
+                return content_hash == cache_hash
+        return False
+    
+    def read_cache(self) -> List[str]:
+        cache_file_name = f"{self.working_directory}/{self.name}.thy.result"
+        with open(cache_file_name, "rb") as cache_file:
+            # skip the first line (the hash)
+            _ = pickle.load(cache_file)
+            # return IsabelleResponse(**json.load(cache_file))
+            return pickle.load(cache_file)
 
+    def write_cache(self, response: List[str]):
+        if self.cache_exists():
+            return
+
+        # Cache the output of using a theory file
+        cache_file_name = f"{self.working_directory}/{self.name}.thy.result"
+        with open(cache_file_name, "wb") as cache_file:
+            pickle.dump(hashlib.sha256(repr(self).encode("utf8")).hexdigest() + "\n", cache_file)
+            pickle.dump(response, cache_file)
 
 @dataclass
 class TheoryResult:
