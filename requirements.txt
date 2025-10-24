@@ -1,4 +1,5 @@
 isabelle_client
+ipywidgets
 loguru
 tqdm
 pytest
