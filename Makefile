@@ -17,8 +17,6 @@ PYTHON_INTERPRETER = python
 requirements:
 	$(PYTHON_INTERPRETER) -m pip install -U pip
 	$(PYTHON_INTERPRETER) -m pip install -r requirements.txt
-	
-
 
 
 ## Delete all compiled Python files
@@ -41,7 +39,6 @@ format:
 	ruff format
 
 
-
 ## Run tests
 .PHONY: test
 test:
@@ -61,7 +58,6 @@ create_environment:
 activate_environment:
 	conda activate $(ENV_NAME)
 	@echo ">>> conda env activated. Use:\nconda deactivate to deactivate it."
-
 
 
 #################################################################################
