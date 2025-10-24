@@ -3,12 +3,6 @@ from isabelle_connector.isabelle_connector import (
     temp_theory,
 )
 
-# To allow nested event loops in Pytest
-import nest_asyncio
-
-nest_asyncio.apply()
-
-
 def test_echo():
     isabelle = IsabelleConnector(name="test", working_directory=".")
     responses = isabelle._client.echo("Hello World")
@@ -18,7 +12,7 @@ def test_echo():
 
 def test_use_thy():
     isabelle = IsabelleConnector(name="test", working_directory=".")
-    query = 'ML\<open> let val res = "Hello, World!" in res end \<close>'
+    query = 'ML\\<open> let val res = "Hello, World!" in res end \\<close>'
     test_thy = temp_theory(
         working_directory=".",
         queries=[query],
