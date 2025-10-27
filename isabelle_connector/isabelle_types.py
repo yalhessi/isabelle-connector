@@ -3,6 +3,7 @@ import hashlib
 import os
 import pickle
 from typing import Any
+import warnings
 
 # Isabelle messages inside of IsabelleResponse
 type IsabelleMessage = dict[str, Any]
@@ -36,6 +37,13 @@ class Theory:
     
     def __hash__(self) -> int:
         return hash(self.name)
+    
+    def __del__(self) -> None:
+        if self.is_temp:
+            try:
+                os.remove(os.path.join(self.working_directory, f"{self.name}.thy"))
+            except FileNotFoundError:
+                warnings.warn(f"Temp file {self.name}.thy not found for deletion.")
 
     def add_ml_block(self, code: str) -> None:
         self.queries.append(f"ML\\<open>\n{code}\n\\<close>\n")
