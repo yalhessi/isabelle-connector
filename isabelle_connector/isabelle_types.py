@@ -1,11 +1,11 @@
-import pickle
-import os
+from dataclasses import dataclass, field
 import hashlib
-from dataclasses import dataclass, field, asdict
-from typing import Any, List
+import os
+import pickle
+from typing import Any
 
-from isabelle_client import IsabelleResponse
-
+# Isabelle messages inside of IsabelleResponse
+type IsabelleMessage = dict[str, Any]
 
 @dataclass
 class Theory:
@@ -15,8 +15,8 @@ class Theory:
     working_directory: str
     session: str = "HOL"
     session_id: str = ""
-    imports: List[str] = field(default_factory=list)
-    queries: List[str] = field(default_factory=list)
+    imports: list[str] = field(default_factory=list)
+    queries: list[str] = field(default_factory=list)
     is_temp: bool = False
 
     def __repr__(self) -> str:
@@ -33,6 +33,9 @@ class Theory:
             {body}
             end"""
         return content
+    
+    def __hash__(self) -> int:
+        return hash(self.name)
 
     def add_ml_block(self, code: str) -> None:
         self.queries.append(f"ML\\<open>\n{code}\n\\<close>\n")
@@ -61,7 +64,7 @@ class Theory:
                 return content_hash == cache_hash
         return False
     
-    def read_cache(self) -> List[str]:
+    def read_cache(self) -> list[IsabelleMessage]:
         cache_file_name = f"{self.working_directory}/{self.name}.thy.result"
         with open(cache_file_name, "rb") as cache_file:
             # skip the first line (the hash)
@@ -69,7 +72,7 @@ class Theory:
             # return IsabelleResponse(**json.load(cache_file))
             return pickle.load(cache_file)
 
-    def write_cache(self, response: List[str]):
+    def write_cache(self, response: list[IsabelleMessage]):
         if self.cache_exists():
             return
 
@@ -84,8 +87,8 @@ class TheoryResult:
     """Isabelle result."""
 
     data: str
-    output: List[str]
-    errs: List[str]
+    output: list[str]
+    errs: list[str]
     results: Any = None
 
     def __post_init__(self):
