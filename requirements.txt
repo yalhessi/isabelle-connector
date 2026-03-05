@@ -1,4 +1,5 @@
-isabelle_client
+nest_asyncio
+isabelle_client=0.5.2
 ipywidgets
 loguru
 tqdm
