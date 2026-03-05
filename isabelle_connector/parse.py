@@ -1,7 +1,8 @@
 import ast
-import json
+from typing import Any
 import warnings
 
+from isabelle_client.data_models import IsabelleResponseType
 from isabelle_client.socket_communication import IsabelleResponse
 from isabelle_connector.isabelle_types import IsabelleMessage, Theory
 
@@ -32,8 +33,8 @@ def extract_messages_from_responses(
     thy_dict = {thy.name: thy for thy in thys}
     for response in responses:
         match response.response_type:
-            case "FINISHED":
-                data = json.loads(response.response_body)
+            case IsabelleResponseType.FINISHED:
+                data = response.response_body.model_dump()
                 for node in data["nodes"]:
                     name = node["theory_name"].removeprefix("Draft.")
                     # Skip output of imported theories
@@ -43,7 +44,7 @@ def extract_messages_from_responses(
                     current_messages = node["messages"]
                     current_thy.write_cache(current_messages)
                     messages[current_thy] = current_messages
-            case "ERROR" | "FAILED":
+            case IsabelleResponseType.ERROR | IsabelleResponseType.FAILED:
                 warnings.warn(f"Received ERROR response: {response.response_body}")
             case _:
                 continue
@@ -64,3 +65,15 @@ def extract_ml_values_from_messages(messages: dict[Theory, list[IsabelleMessage]
                 case "error":
                     errs[thy].append(message["message"])
     return values, errs
+
+def extract_session_id(session_start_response: list[Any]) -> str:
+    """Extract session id from typed `isabelle_client` session_start responses."""
+    responses = session_start_response
+    for response in reversed(responses):
+        response_body = response.response_body
+        if hasattr(response_body, "session_id"):
+            return response_body.session_id
+    raise ValueError(
+        "Could not extract session_id from session_start response. "
+        f"Got: {session_start_response!r}"
+    )

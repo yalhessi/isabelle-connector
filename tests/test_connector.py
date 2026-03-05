@@ -7,7 +7,7 @@ def test_echo():
     isabelle = IsabelleConnector(name="test", working_directory=".")
     responses = isabelle._client.echo("Hello World")
     response = responses[-1].response_body
-    assert response == '"Hello World"'
+    assert response == "Hello World"
 
 
 def test_use_thy():
@@ -22,6 +22,6 @@ def test_use_thy():
 
     result, errs = isabelle.use_theories(
         [test_thy],
-        rm_after=True,
+        rm_if_temp=True,
     )
-    assert result == {"Test": ["Hello, World!"]}
+    assert result == {test_thy: ["Hello, World!"]}

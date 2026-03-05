@@ -15,6 +15,6 @@ def test_use_thy():
 
     result, errs = isabelle.use_theories(
         [test_thy],
-        rm_after=True,
+        rm_if_temp=True,
     )
-    assert result == {"Test": ["Hello, World!"]}
+    assert result == {test_thy: ["Hello, World!"]}

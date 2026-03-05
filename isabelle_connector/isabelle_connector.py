@@ -7,8 +7,7 @@ import tempfile
 from typing import Any
 from uuid import uuid4
 
-from isabelle_client.isabelle__client import IsabelleClient
-from isabelle_client.socket_communication import IsabelleResponse
+from isabelle_client import IsabelleClient, IsabelleResponse
 from isabelle_client.utils import (
     get_isabelle_client,
     start_isabelle_server,
@@ -18,6 +17,7 @@ from isabelle_connector.isabelle_types import IsabelleMessage, Theory
 from isabelle_connector.parse import (
     extract_messages_from_responses,
     extract_ml_values_from_messages,
+    extract_session_id,
 )
 from isabelle_connector.utils import flatten, temp_theory
 import nest_asyncio
@@ -85,7 +85,10 @@ class IsabelleConnector:
         )
         for i, session in enumerate(sessions.keys()):
             print(f"Starting session {i + 1} / {len(sessions)}: {session}")
-            session_id = self._client.session_start(session, dirs=self.session_dirs)
+            session_start_response = self._client.session_start(
+                session, dirs=self.session_dirs
+            )
+            session_id = extract_session_id(session_start_response)
             self.session_dict[session] = [session_id]
             self.session_counter[session] = 0
         for thy in thys:
@@ -96,8 +99,11 @@ class IsabelleConnector:
                 print(
                     f"Adding new session for {thy.session} after {self.session_counter[thy.session]} theories"
                 )
-                session_id = self._client.session_start(
+                session_start_response = self._client.session_start(
                     thy.session, dirs=self.session_dirs
+                )
+                session_id = extract_session_id(
+                    session_start_response
                 )
                 self.session_dict[thy.session].append(session_id)
             thy.session_id = self.session_dict[thy.session][-1]
