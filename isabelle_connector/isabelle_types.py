@@ -92,18 +92,13 @@ class Theory:
 
 @dataclass
 class TheoryResult:
-    """Isabelle result."""
+    """Parsed result of compiling a single theory."""
 
-    data: str
-    output: list[str]
-    errs: list[str]
-    results: Any = None
+    theory: Theory
+    messages: list[IsabelleMessage] = field(default_factory=list)
+    values: list[Any] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
 
-    def __post_init__(self):
-        self.eval_results()
-
-    def eval_results(self):
-        """
-        Read the results of the theory.
-        """
-        self.result = eval(self.output[-1].split("=", 1)[1].rsplit(":", 1)[0].strip())
+    @property
+    def ok(self) -> bool:
+        return not self.errors

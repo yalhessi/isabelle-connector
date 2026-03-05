@@ -4,7 +4,7 @@ import logging
 import os
 from pprint import pprint
 import tempfile
-from typing import Any
+from typing import Any, Sequence
 from uuid import uuid4
 
 from isabelle_client import IsabelleClient, IsabelleResponse
@@ -13,10 +13,10 @@ from isabelle_client.utils import (
     start_isabelle_server,
 )
 from isabelle_connector.decorators import timing
-from isabelle_connector.isabelle_types import IsabelleMessage, Theory
+from isabelle_connector.isabelle_types import IsabelleMessage, Theory, TheoryResult
 from isabelle_connector.parse import (
     extract_messages_from_responses,
-    extract_ml_values_from_messages,
+    extract_theory_results,
     extract_session_id,
 )
 from isabelle_connector.utils import flatten, temp_theory
@@ -114,7 +114,7 @@ class IsabelleConnector:
         thys: list[Theory],
         client: IsabelleClient,
         **kwargs,
-    ) -> list[IsabelleResponse]:
+    ) -> Sequence[IsabelleResponse]:
         return client.use_theories(
             theories=[thy.name for thy in thys],
             master_dir=thys[0].working_directory,
@@ -130,7 +130,7 @@ class IsabelleConnector:
         rm_if_temp: bool = True,
         use_cache: bool = True,
         **kwargs,
-    ) -> dict[str, list[Any]]:
+    ) -> dict[Theory, TheoryResult]:
         # Skip processing theories that have cached results
         values = {thy.name: "" for thy in thys}
         messages: dict[Theory, list[IsabelleMessage]] = {}
@@ -165,21 +165,19 @@ class IsabelleConnector:
             new_messages = extract_messages_from_responses(unprocessed_thys, responses)
             messages.update(new_messages)
 
-        values, errs = extract_ml_values_from_messages(messages)
-
+        theory_results = extract_theory_results(messages)
         print(
             f"Successful values from {len([v for v in values.values() if v])} / {len(thys)} theories"
         )
-
-        if rm_if_temp:
-            for theory in thys:
-                try:
-                    del theory  # triggers __del__ to remove temp files
-                except Exception as e:
-                    print(f"Failed to remove temp files: {e}")
-                    errs[theory] = [str(e)]
-
-        return values, errs
+        # if rm_if_temp:
+        #     for theory in thys:
+        #         try:
+        #             del theory  # triggers __del__ to remove temp files
+        #         except Exception as e:
+        #             print(f"Failed to remove temp files: {e}")
+        #             if theory in errs:
+        #                 errs[theory].append(str(e))
+        return theory_results
 
 
 def batch_thys(theories, batch_size=100):

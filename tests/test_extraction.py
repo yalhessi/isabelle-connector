@@ -13,8 +13,8 @@ def test_use_thy():
         name="Test",
     )
 
-    result, errs = isabelle.use_theories(
+    result = isabelle.use_theories(
         [test_thy],
         rm_if_temp=True,
     )
-    assert result == {test_thy: ["Hello, World!"]}
+    assert result[test_thy].values == ["Hello, World!"]

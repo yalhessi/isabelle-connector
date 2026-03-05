@@ -4,7 +4,7 @@ import warnings
 
 from isabelle_client.data_models import IsabelleResponseType
 from isabelle_client.socket_communication import IsabelleResponse
-from isabelle_connector.isabelle_types import IsabelleMessage, Theory
+from isabelle_connector.isabelle_types import IsabelleMessage, Theory, TheoryResult
 
 
 def parse_ml_value(message):
@@ -65,6 +65,21 @@ def extract_ml_values_from_messages(messages: dict[Theory, list[IsabelleMessage]
                 case "error":
                     errs[thy].append(message["message"])
     return values, errs
+
+
+def extract_theory_results(
+    messages: dict[Theory, list[IsabelleMessage]],
+) -> dict[Theory, TheoryResult]:
+    values, errs = extract_ml_values_from_messages(messages)
+    return {
+        thy: TheoryResult(
+            theory=thy,
+            messages=messages[thy],
+            values=values[thy],
+            errors=errs[thy],
+        )
+        for thy in messages
+    }
 
 def extract_session_id(session_start_response: list[Any]) -> str:
     """Extract session id from typed `isabelle_client` session_start responses."""
