@@ -8,6 +8,7 @@ import warnings
 # Isabelle messages inside of IsabelleResponse
 type IsabelleMessage = dict[str, Any]
 
+
 @dataclass
 class Theory:
     """A theory."""
@@ -34,10 +35,10 @@ class Theory:
             {body}
             end"""
         return content
-    
+
     def __hash__(self) -> int:
         return hash(self.name)
-    
+
     def __del__(self) -> None:
         if self.is_temp:
             try:
@@ -59,7 +60,7 @@ class Theory:
             encoding="utf8",
         ) as theory_file:
             theory_file.write(content)
-    
+
     def cache_exists(self) -> bool:
         cache_file_name = f"{self.working_directory}/{self.name}.thy.result"
         if os.path.exists(cache_file_name):
@@ -71,7 +72,7 @@ class Theory:
                 # cache_hash = cache_file.readline().decode("utf8").strip()
                 return content_hash == cache_hash
         return False
-    
+
     def read_cache(self) -> list[IsabelleMessage]:
         cache_file_name = f"{self.working_directory}/{self.name}.thy.result"
         with open(cache_file_name, "rb") as cache_file:
@@ -87,8 +88,11 @@ class Theory:
         # Cache the output of using a theory file
         cache_file_name = f"{self.working_directory}/{self.name}.thy.result"
         with open(cache_file_name, "wb") as cache_file:
-            pickle.dump(hashlib.sha256(repr(self).encode("utf8")).hexdigest() + "\n", cache_file)
+            pickle.dump(
+                hashlib.sha256(repr(self).encode("utf8")).hexdigest() + "\n", cache_file
+            )
             pickle.dump(response, cache_file)
+
 
 @dataclass
 class TheoryResult:

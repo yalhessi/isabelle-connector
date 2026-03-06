@@ -3,6 +3,7 @@ from isabelle_connector.isabelle_connector import (
     temp_theory,
 )
 
+
 def test_echo():
     isabelle = IsabelleConnector(name="test", working_directory=".")
     responses = isabelle._client.echo("Hello World")

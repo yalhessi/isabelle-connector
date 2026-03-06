@@ -2,8 +2,7 @@ import ast
 from typing import Any
 import warnings
 
-from isabelle_client.data_models import IsabelleResponseType
-from isabelle_client.socket_communication import IsabelleResponse
+from isabelle_client.data_models import IsabelleResponse, IsabelleResponseType
 from isabelle_connector.isabelle_types import IsabelleMessage, Theory, TheoryResult
 
 
@@ -80,6 +79,7 @@ def extract_theory_results(
         )
         for thy in messages
     }
+
 
 def extract_session_id(session_start_response: list[Any]) -> str:
     """Extract session id from typed `isabelle_client` session_start responses."""

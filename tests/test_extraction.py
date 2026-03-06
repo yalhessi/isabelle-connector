@@ -3,6 +3,7 @@ from isabelle_connector.isabelle_connector import (
     temp_theory,
 )
 
+
 def test_use_thy():
     isabelle = IsabelleConnector(name="test", working_directory=".")
     query = 'ML\\<open> let val res = "Hello, World!" in res end \\<close>'

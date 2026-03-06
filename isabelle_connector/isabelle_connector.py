@@ -16,8 +16,8 @@ from isabelle_connector.decorators import timing
 from isabelle_connector.isabelle_types import IsabelleMessage, Theory, TheoryResult
 from isabelle_connector.parse import (
     extract_messages_from_responses,
-    extract_theory_results,
     extract_session_id,
+    extract_theory_results,
 )
 from isabelle_connector.utils import flatten, temp_theory
 import nest_asyncio
@@ -102,9 +102,7 @@ class IsabelleConnector:
                 session_start_response = self._client.session_start(
                     thy.session, dirs=self.session_dirs
                 )
-                session_id = extract_session_id(
-                    session_start_response
-                )
+                session_id = extract_session_id(session_start_response)
                 self.session_dict[thy.session].append(session_id)
             thy.session_id = self.session_dict[thy.session][-1]
             self.session_counter[thy.session] += 1
