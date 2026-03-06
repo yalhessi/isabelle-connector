@@ -130,7 +130,6 @@ class IsabelleConnector:
         **kwargs,
     ) -> dict[Theory, TheoryResult]:
         # Skip processing theories that have cached results
-        values = {thy.name: "" for thy in thys}
         messages: dict[Theory, list[IsabelleMessage]] = {}
         unprocessed_thys = []
         for theory in thys:
@@ -165,16 +164,11 @@ class IsabelleConnector:
 
         theory_results = extract_theory_results(messages)
         print(
-            f"Successful values from {len([v for v in values.values() if v])} / {len(thys)} theories"
+            f"Successful values from {len([result for result in theory_results.values() if result.values])} / {len(thys)} theories"
         )
-        # if rm_if_temp:
-        #     for theory in thys:
-        #         try:
-        #             del theory  # triggers __del__ to remove temp files
-        #         except Exception as e:
-        #             print(f"Failed to remove temp files: {e}")
-        #             if theory in errs:
-        #                 errs[theory].append(str(e))
+        if rm_if_temp:
+            for theory in thys:
+                theory.delete_file()
         return theory_results
 
 

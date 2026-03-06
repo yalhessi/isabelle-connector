@@ -39,12 +39,12 @@ class Theory:
     def __hash__(self) -> int:
         return hash(self.name)
 
-    def __del__(self) -> None:
-        if self.is_temp:
-            try:
-                os.remove(os.path.join(self.working_directory, f"{self.name}.thy"))
-            except FileNotFoundError:
-                warnings.warn(f"Temp file {self.name}.thy not found for deletion.")
+    # def __del__(self) -> None:
+    #     if self.is_temp:
+    #         try:
+    #             os.remove(os.path.join(self.working_directory, f"{self.name}.thy"))
+    #         except FileNotFoundError:
+    #             warnings.warn(f"Temp file {self.name}.thy not found for deletion.")
 
     def add_ml_block(self, code: str) -> None:
         self.queries.append(f"ML\\<open>\n{code}\n\\<close>\n")
@@ -60,6 +60,12 @@ class Theory:
             encoding="utf8",
         ) as theory_file:
             theory_file.write(content)
+            
+    def delete_file(self) -> None:
+        try:
+            os.remove(os.path.join(self.working_directory, f"{self.name}.thy"))
+        except FileNotFoundError:
+            warnings.warn(f"Temp file {self.name}.thy not found for deletion.")
 
     def cache_exists(self) -> bool:
         cache_file_name = f"{self.working_directory}/{self.name}.thy.result"
@@ -92,6 +98,15 @@ class Theory:
                 hashlib.sha256(repr(self).encode("utf8")).hexdigest() + "\n", cache_file
             )
             pickle.dump(response, cache_file)
+
+
+@dataclass
+class TheoryConfig:
+    """Configuration required to create and use generated theories."""
+
+    working_directory: str
+    session: str = "HOL"
+    imports: list[str] = field(default_factory=list)
 
 
 @dataclass

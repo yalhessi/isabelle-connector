@@ -1,20 +1,20 @@
 from argparse import Namespace
-import os
 
-from isabelle_connector.config import INTERIM_DATA_DIR
-from isabelle_connector.isabelle_types import Theory
-from isabelle_connector.utils import path_to_theory_name, temp_theory
+from isabelle_connector.config import PROJ_ROOT
+from isabelle_connector.decorators import theory_builder
+from isabelle_connector.isabelle_types import Theory, TheoryConfig
 
 
-def transitions_theory(thy: Theory, configs: Namespace) -> Theory:
+@theory_builder(prefix="Transitions")
+def transitions_theory(thy: Theory, theory_config: TheoryConfig) -> str:
     """
     Get theorems from a theory.
 
     :param theory_name: name of the theory
     :returns: theorems from the theory
     """
-    new_thy_name = f"Transitions_{path_to_theory_name(thy.name)}"
-    query = f"""
+    theory_config.imports += [str(PROJ_ROOT / "isabelle-thys" / "Extract")]
+    return f"""
             let
                 val filename = "{thy.working_directory}/{thy.name}.thy"
                 val stream = TextIO.openIn filename
@@ -25,16 +25,6 @@ def transitions_theory(thy: Theory, configs: Namespace) -> Theory:
             in
                 ("{thy.name}", results)
             end"""
-
-    thy = temp_theory(
-        name=new_thy_name,
-        imports=configs.imports,
-        working_directory=os.path.join(
-            INTERIM_DATA_DIR, os.path.basename(configs.root_dir)
-        ),
-    )
-    thy.add_ml_block(query)
-    return thy
 
 
 def hol_session(hol_thy):
@@ -74,14 +64,18 @@ def hol_session(hol_thy):
     return session
 
 
-def template_and_type_extraction_theory(src_thy: Theory, configs: Namespace) -> Theory:
+@theory_builder(prefix="Extract")
+def template_and_type_extraction_theory(
+    src_thy: Theory, theory_config: TheoryConfig
+) -> str:
     name = src_thy.name
-    path, base_name = name.rsplit("/", 1) if "/" in name else ("", name)
-    session = hol_session(src_thy)
-    import_name = f"{session}.{base_name}"
-
-    new_thy_name = f"Extract_{path_to_theory_name(name)}"
-    query = f"""
+    base_name = name.rsplit("/", 1)[1] if "/" in name else name
+    theory_config.imports += [
+        str(PROJ_ROOT / "isabelle-thys" / "ExtractLemmas"),
+        str(PROJ_ROOT / "isabelle-thys" / "RoughSpec"),
+        f"{theory_config.session}.{base_name}",
+    ]
+    return f"""
         let
             fun type_of_const symbol =
               let 
@@ -112,13 +106,3 @@ def template_and_type_extraction_theory(src_thy: Theory, configs: Namespace) -> 
         in
             results
         end"""
-    thy = temp_theory(
-        name=new_thy_name,
-        session=session,
-        imports=configs.imports + [import_name],
-        working_directory=os.path.join(
-            INTERIM_DATA_DIR, os.path.basename(configs.root_dir)
-        ),
-    )
-    thy.add_ml_block(query)
-    return thy
