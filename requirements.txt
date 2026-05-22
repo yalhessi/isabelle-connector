@@ -1,7 +1,8 @@
-isabelle_client
-ipywidgets
+isabelle-client
 loguru
-tqdm
+nest-asyncio
+parallelbar
 pytest
+tqdm
 
 -e .

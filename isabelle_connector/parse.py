@@ -1,28 +1,10 @@
-import ast
 import json
+import os
 import warnings
 
 from isabelle_client.socket_communication import IsabelleResponse
+
 from isabelle_connector.isabelle_types import IsabelleMessage, Theory
-
-
-def parse_ml_value(message):
-    # clean up the message
-    cleaned_message = message.replace("true", "True").replace("false", "False")
-    val_name, val_rest = cleaned_message.split("=", 1)
-    val_value, val_type = (elem.strip() for elem in val_rest.rsplit(":", 1))
-    try:
-        # silence syntax warnings during literal_eval (e.g., for \<open>)
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", category=SyntaxWarning)
-            val = ast.literal_eval(val_value)
-        return val, True
-    except Exception as e:
-        return cleaned_message, False
-
-
-def is_ml_value(message):
-    return message.startswith("val ")
 
 
 def extract_messages_from_responses(
@@ -30,17 +12,46 @@ def extract_messages_from_responses(
 ) -> dict[Theory, list[IsabelleMessage]]:
     messages = {thy: [] for thy in thys}
     thy_dict = {thy.name: thy for thy in thys}
+    thy_file_dict = {os.path.join(thy.working_directory, f"{thy.name}.thy"): thy for thy in thys}
     for response in responses:
         match response.response_type:
             case "FINISHED":
                 data = json.loads(response.response_body)
+                pending_errors: dict[Theory, list[IsabelleMessage]] = {thy: [] for thy in thys}
+                for error in data.get("errors", []):
+                    error_file = error.get("pos", {}).get("file")
+                    if error_file is None:
+                        continue
+                    current_thy = thy_file_dict.get(error_file)
+                    if current_thy is not None:
+                        pending_errors[current_thy].append(error)
                 for node in data["nodes"]:
                     name = node["theory_name"].removeprefix("Draft.")
                     # Skip output of imported theories
                     if name not in thy_dict:
                         continue
                     current_thy = thy_dict[name]
-                    current_messages = node["messages"]
+                    current_messages = list(node["messages"])
+                    current_messages.extend(pending_errors[current_thy])
+                    pending_errors[current_thy] = []
+                    status = node.get("status", {})
+                    if not current_messages and not status.get("ok", True):
+                        current_messages.append(
+                            {
+                                "kind": "error",
+                                "message": (
+                                    "Theory processing failed without an explicit "
+                                    f"message: {current_thy.name}"
+                                ),
+                            }
+                        )
+                    current_thy.write_cache(current_messages)
+                    messages[current_thy] = current_messages
+                for current_thy, current_errors in pending_errors.items():
+                    if not current_errors:
+                        continue
+                    current_messages = list(messages[current_thy])
+                    current_messages.extend(current_errors)
                     current_thy.write_cache(current_messages)
                     messages[current_thy] = current_messages
             case "ERROR" | "FAILED":
@@ -48,19 +59,3 @@ def extract_messages_from_responses(
             case _:
                 continue
     return messages
-
-
-def extract_ml_values_from_messages(messages: dict[Theory, list[IsabelleMessage]]):
-    values, errs = {thy: [] for thy in messages}, {thy: [] for thy in messages}
-    for thy in messages:
-        for message in messages[thy]:
-            match message["kind"]:
-                case "writeln":
-                    clean_message = message["message"].replace("\n", " ")
-                    if is_ml_value(clean_message):
-                        ml_val, success = parse_ml_value(clean_message)
-                        if success:
-                            values[thy].append(ml_val)
-                case "error":
-                    errs[thy].append(message["message"])
-    return values, errs

@@ -1,16 +1,30 @@
 [project]
 name = "isabelle-connector"
-version = "0.1.0"
-description = ""
+version = "1.0.0"
+description = "Seamless Python interface for processing Isabelle theories on the fly."
 authors = [
     {name = "Yousef Alhessi",email = "yalhessi@gmail.com"}
 ]
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "isabelle-client",
+    "nest-asyncio",
+    "parallelbar",
 ]
 
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
+
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
