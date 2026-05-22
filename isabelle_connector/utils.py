@@ -1,5 +1,4 @@
 import os
-import re
 import warnings
 from collections.abc import Callable
 from pathlib import Path
@@ -7,6 +6,7 @@ from typing import Optional
 from uuid import uuid4
 
 from isabelle_connector.isabelle_types import Theory
+from isabelle_connector.session_resolver import RootFileResolver
 
 TheoryLike = Theory | str
 
@@ -36,151 +36,6 @@ def temp_theory(**kwargs):
     return Theory(**kwargs)
 
 
-def _theory_name(theory: TheoryLike) -> str:
-    name = theory.name if isinstance(theory, Theory) else str(theory)
-    return name.removesuffix(".thy").strip("/")
-
-
-def parse_root_sessions(root_file) -> dict[str, str]:
-    """Parse an Isabelle ROOT file and return a mapping of subdirectory to session name.
-
-    Each entry maps a directory path (relative to the ROOT file's parent directory)
-    to the session name declared in that directory.  Sessions without an explicit
-    ``in`` clause are mapped to the empty string ``""`` (i.e. the ROOT file's own
-    directory).
-
-    This is the reliable way to resolve session names for HOL source trees, where
-    the directory name does not match the session name (e.g. ``IMP/`` → ``"HOL-IMP"``).
-
-    Examples::
-
-        sessions = parse_root_sessions("/path/to/HOL/ROOT")
-        sessions["IMP"]      # -> "HOL-IMP"
-        sessions["Analysis"] # -> "HOL-Analysis"
-        sessions[""]         # -> "HOL"
-
-    Args:
-        root_file: Path to an Isabelle ROOT file.
-
-    Returns:
-        Dictionary mapping relative subdirectory paths to session names.
-    """
-    root_file = Path(root_file)
-    content = root_file.read_text(encoding="utf-8")
-
-    # Matches lines of the form:
-    #   session ["]Name["] [(groups)] [in ["]dir["]] =
-    _SESSION_RE = re.compile(
-        r"^\s*session\s+"
-        r'(?:"([^"]+)"|(\S+))'           # quoted or unquoted session name
-        r"(?:\s+\([^)]*\))?"             # optional groups like (main) or (timing)
-        r'(?:\s+in\s+(?:"([^"]+)"|(\S+)))?'  # optional: in "dir" or in dir
-        r"\s*=",
-        re.MULTILINE,
-    )
-
-    result: dict[str, str] = {}
-    for m in _SESSION_RE.finditer(content):
-        name = m.group(1) or m.group(2)
-        directory = m.group(3) or m.group(4) or ""
-        result[directory] = name
-
-    return result
-
-
-def session_from_root(theory_name: TheoryLike, root_file, *, default: str = "HOL") -> str:
-    """Resolve a theory's session by walking up directories from an Isabelle ROOT file.
-
-    This is the preferred resolver for Isabelle distribution sources.  It
-    handles cases where the physical directory name differs from the session
-    name, such as ``IMP/AExp`` belonging to ``HOL-IMP``.
-    """
-    sessions_map = parse_root_sessions(root_file)
-    name = _theory_name(theory_name)
-    theory_subdir = name.rsplit("/", 1)[0] if "/" in name else ""
-
-    candidate = theory_subdir
-    while True:
-        if candidate in sessions_map:
-            return sessions_map[candidate]
-        if not candidate:
-            break
-        candidate = candidate.rsplit("/", 1)[0] if "/" in candidate else ""
-
-    return sessions_map.get("", default)
-
-
-_HOL_SESSION_PREFIXES: tuple[tuple[str, str], ...] = (
-    ("MicroJava", "HOL-MicroJava"),
-    ("Decision_Procs", "HOL-Decision_Procs"),
-    ("Corec_Examples", "HOL-Corec_Examples"),
-    ("Types_To_Sets", "HOL-Types_To_Sets"),
-    ("SPARK/Examples", "HOL-SPARK-Examples"),
-    ("UNITY", "HOL-UNITY"),
-    ("Imperative_HOL", "HOL-Imperative_HOL"),
-    ("Datatype_Examples", "HOL-Datatype_Examples"),
-    ("Auth", "HOL-Auth"),
-    ("Matrix_LP", "HOL-Matrix_LP"),
-)
-
-
-def hol_session(theory: TheoryLike, *, root_file=None) -> str:
-    """Infer the Isabelle/HOL distribution session for a theory.
-
-    Prefer passing ``root_file=.../src/HOL/ROOT`` when available.  Without a
-    ROOT file this falls back to the historical HOL source-tree heuristic used
-    by the extraction notebooks.
-    """
-    if root_file is not None:
-        return session_from_root(theory, root_file)
-
-    name = _theory_name(theory)
-    if "/" not in name:
-        if "." in name:
-            prefix = name.split(".", 1)[0]
-            if prefix == "HOL" or prefix.startswith("HOL-"):
-                return prefix
-        return "HOL"
-
-    path, _base_name = name.rsplit("/", 1)
-    if path.startswith("HOLCF/IOA"):
-        return "-".join(path.split("/")[1:])
-    if path.startswith("HOLCF"):
-        return "-".join(path.split("/"))
-    for prefix, session in _HOL_SESSION_PREFIXES:
-        if path.startswith(prefix):
-            return session
-    return "-".join(["HOL"] + path.split("/"))
-
-
-_AFP_SESSION_PREFIXES: tuple[tuple[str, str], ...] = (
-    ("AutoCorres2/main", "AutoCorres2_Main"),
-    ("AutoCorres2/tests", "AutoCorres2_Test"),
-    ("Ordinary_Differential_Equations/Refinement", "HOL-ODE-Numerics"),
-    ("Ordinary_Differential_Equations/Numerics", "HOL-ODE-Numerics"),
-    ("Ordinary_Differential_Equations/Ex/Lorenz/C0", "Lorenz_C0"),
-    ("Ordinary_Differential_Equations/Ex/Lorenz/C1", "Lorenz_C1"),
-    ("Ordinary_Differential_Equations/Ex/Lorenz", "Lorenz_Approximation"),
-    ("Ordinary_Differential_Equations/Ex/ARCH_COMP", "HOL-ODE-ARCH-COMP"),
-    ("Ordinary_Differential_Equations/Ex", "HOL-ODE-Examples"),
-    ("UTP/toolkit", "UTP-Toolkit"),
-)
-
-
-def afp_session(theory: TheoryLike) -> str:
-    """Infer the AFP session for a theory using AFP path conventions.
-
-    Most AFP entries use the top-level directory as the session name.  The
-    special cases mirror the extraction notebooks where an AFP entry declares
-    multiple sessions below one top-level directory.
-    """
-    name = _theory_name(theory)
-    for prefix, session in _AFP_SESSION_PREFIXES:
-        if name.startswith(prefix):
-            return session
-    return infer_session_name(name) or "HOL"
-
-
 def get_theory(
     theory_file,
     root_dir,
@@ -208,8 +63,7 @@ def get_theory(
         root_dir: Root directory that theories are relative to.
         session: Explicit session name; overrides all inference when provided.
         session_resolver: Callable receiving the relative theory name and
-            returning a session name.  For example, ``hol_session`` or
-            ``afp_session``.
+            returning a session name (e.g. ``HOLResolver()``, ``AFP``).
         root_file: Path to an Isabelle ROOT file for accurate session lookup.
     """
     root_path = Path(root_dir)
@@ -222,9 +76,9 @@ def get_theory(
     elif session_resolver is not None:
         resolved_session = session_resolver(theory_name)
     elif root_file is not None:
-        resolved_session = session_from_root(theory_name, root_file)
+        resolved_session = RootFileResolver(root_file)(theory_name)
     elif (root_path / "ROOT").is_file():
-        resolved_session = session_from_root(theory_name, root_path / "ROOT")
+        resolved_session = RootFileResolver(root_path / "ROOT")(theory_name)
     else:
         resolved_session = infer_session_name(theory_name) or "HOL"
 
@@ -250,8 +104,9 @@ def infer_session_name(theory_name: str) -> str | None:
         This heuristic does **not** work for HOL source trees where the
         subdirectory name differs from the session name (e.g. the directory
         ``IMP/`` declares session ``"HOL-IMP"`` in a ROOT file).  Use
-        :func:`parse_root_sessions` with the ``root_file`` argument of
-        :func:`get_theory` for reliable HOL session resolution.
+        :class:`~isabelle_connector.session_resolver.RootFileResolver` via
+        the ``root_file`` argument of :func:`get_theory` for reliable HOL session
+        resolution.
 
     Examples::
 

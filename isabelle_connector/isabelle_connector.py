@@ -12,6 +12,7 @@ from isabelle_client.utils import (
     start_isabelle_server,
 )
 from parallelbar import progress_map
+from tqdm.contrib.logging import logging_redirect_tqdm
 
 from isabelle_connector.isabelle_types import IsabelleMessage, Theory, TheoryOutcome
 from isabelle_connector.parse import extract_messages_from_responses
@@ -175,17 +176,15 @@ class IsabelleConnector:
                         client=self._client,
                         session_id=session_id,
                     )
-                    messages.update(
-                        flatten_dict(
-                            progress_map(
-                                func,
-                                batches,
-                                n_cpu=os.cpu_count(),
-                                chunk_size=1,
-                                need_serialize=False,
-                            )  # type: ignore[no-untyped-call]
+                    with logging_redirect_tqdm():
+                        results = progress_map(  # type: ignore[no-untyped-call]
+                            func,
+                            batches,
+                            n_cpu=os.cpu_count(),
+                            chunk_size=1,
+                            need_serialize=False,
                         )
-                    )
+                    messages.update(flatten_dict(results))  # type: ignore[arg-type]
 
         outcomes = {thy: TheoryOutcome.from_messages(msgs) for thy, msgs in messages.items()}
 
