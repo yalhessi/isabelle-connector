@@ -9,8 +9,10 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "isabelle-client",
+    "loguru",
     "nest-asyncio",
     "parallelbar",
+    "tqdm",
 ]
 
 

@@ -14,12 +14,9 @@ Run with:
     python example/hol_imp_extraction.py
 """
 
-import logging
-
 from isabelle_connector import IsabelleConnector, Theory, TheoryOutcome
+from isabelle_connector.logging_utils import configure_logging
 from isabelle_connector.utils import temp_theory
-
-logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 
 
 # ---------------------------------------------------------------------------
@@ -109,6 +106,7 @@ def print_outcome(outcome: TheoryOutcome) -> None:
 
 
 def main() -> None:
+    configure_logging(level="INFO")
     working_dir = "/tmp/isabelle-connector-example"
 
     with IsabelleConnector(

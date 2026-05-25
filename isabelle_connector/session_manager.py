@@ -1,7 +1,6 @@
-import logging
 from collections import deque
 
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 
 class SessionManager:
@@ -26,7 +25,8 @@ class SessionManager:
         client,
         session_dirs: list[str],
         rotation_size: int = 1000,
-        max_sessions: int = 50,
+        max_sessions: int = 100,
+        expected_total: int | None = None,
     ):
         self._client = client
         self.session_dirs = session_dirs
@@ -38,6 +38,23 @@ class SessionManager:
         self._counters: dict[str, int] = {}
         # global insertion-order queue of (session_name, session_id)
         self._open_order: deque[tuple[str, str]] = deque()
+        # running total of sessions ever opened (never decremented)
+        self._total_sessions_opened: int = 0
+        # optional known total, used for x/y progress logging
+        self.expected_total: int | None = expected_total
+        # sessions opened in the current batch (reset by begin_batch)
+        self._batch_sessions_opened: int = 0
+
+    def begin_batch(self, session_names: list[str]) -> None:
+        """Prepare progress tracking for a new batch of theories.
+
+        Sets *expected_total* to the number of unique session names in
+        *session_names* that have not yet been opened, and resets the
+        per-batch counter so "opening session x/y" restarts from 1.
+        """
+        new_names = {n for n in session_names if n not in self._sessions}
+        self.expected_total = len(new_names)
+        self._batch_sessions_opened = 0
 
     def session_id_for(self, session_name: str) -> str:
         """Return an active session ID for *session_name*.
@@ -55,7 +72,7 @@ class SessionManager:
 
         count = self._counters[session_name]
         if count > 0 and count % self.rotation_size == 0:
-            logger.info("Rotating session '%s' after %d theories", session_name, count)
+            logger.info("Rotating session '{}' after {} theories", session_name, count)
             sid = self._open_session(session_name)
             self._sessions[session_name].append(sid)
 
@@ -74,6 +91,19 @@ class SessionManager:
         self._sessions.clear()
         self._counters.clear()
 
+    def force_clear(self, new_client) -> None:
+        """Discard all session state without stopping sessions.
+
+        Use this after the Isabelle server process has been killed, when
+        individual ``session_stop`` calls are no longer possible or necessary.
+        Updates the client reference so subsequent sessions open against the
+        new server.
+        """
+        self._client = new_client
+        self._sessions.clear()
+        self._counters.clear()
+        self._open_order.clear()
+
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
@@ -86,14 +116,21 @@ class SessionManager:
             self._stop_session(oldest_name, oldest_sid)
         sid = self._start_session(session_name)
         self._open_order.append((session_name, sid))
+        self._total_sessions_opened += 1
+        self._batch_sessions_opened += 1
         return sid
 
     def _start_session(self, session_name: str) -> str:
-        logger.info("Starting Isabelle session: %s", session_name)
+        progress = (
+            f"{self._batch_sessions_opened + 1}/{self.expected_total}"
+            if self.expected_total is not None
+            else str(self._total_sessions_opened + 1)
+        )
+        logger.info("Opening session {} '{}'", progress, session_name)
         return self._client.session_start(session_name, dirs=self.session_dirs)
 
     def _stop_session(self, session_name: str, session_id: str) -> None:
         try:
             self._client.session_stop(session_id)
         except Exception as exc:
-            logger.warning("Failed to stop session '%s' (%s): %s", session_name, session_id, exc)
+            logger.warning("Failed to stop session '{}' ({}): {}", session_name, session_id, exc)

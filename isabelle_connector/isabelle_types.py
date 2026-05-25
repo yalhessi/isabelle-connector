@@ -25,6 +25,7 @@ _THEORY_PREAMBLE = [
     "declare [[names_long = false]]",
     "declare [[ML_print_depth=1000000]]",
     "declare [[syntax_ambiguity_warning = false]]",
+    "declare [[ML_catch_all]]",
 ]
 
 

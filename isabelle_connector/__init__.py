@@ -16,6 +16,7 @@ Session resolvers:
     HOLResolver         Resolver for Isabelle/HOL distribution source trees.
     AFPResolver         Resolver for AFP-style repositories.
     RootFileResolver    Resolver backed by an Isabelle ROOT file.
+    CombinedResolver    Routes between HOL and AFP resolvers by entry name.
     HOL                 Pre-built HOLResolver() singleton.
     AFP                 Pre-built AFPResolver() singleton.
 """
@@ -26,6 +27,7 @@ from isabelle_connector.session_resolver import (
     AFP,
     HOL,
     AFPResolver,
+    CombinedResolver,
     HOLResolver,
     RootFileResolver,
     SessionResolver,
@@ -37,6 +39,7 @@ from isabelle_connector.utils import (
     list_theory_files,
     temp_theory,
 )
+from loguru import logger
 
 __all__ = [
     # Core
@@ -52,9 +55,12 @@ __all__ = [
     "HOLResolver",
     "AFPResolver",
     "RootFileResolver",
+    "CombinedResolver",
     "HOL",
     "AFP",
     # Utilities
     "infer_session_name",
     "infer_import_name",
 ]
+
+logger.disable("isabelle_connector")

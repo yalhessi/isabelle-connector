@@ -20,23 +20,20 @@ from __future__ import annotations
 
 import argparse
 import json
-import logging
 import os
 import shutil
 import subprocess
-import sys
 from pathlib import Path
 from typing import Any
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
+from loguru import logger
 
 from isabelle_connector.isabelle_connector import IsabelleConnector
 from isabelle_connector.isabelle_types import Theory, TheoryOutcome
+from isabelle_connector.logging_utils import configure_logging
 from isabelle_connector.utils import path_to_theory_name, temp_theory
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = logger
 SUPPORT_THEORY_DIR = Path(__file__).resolve().parent / "isabelle-thys"
 DEFAULT_WORKING_DIR = Path("/tmp/isabelle-connector-hol-imp-template-types")
 SUPPORT_ML_COMMANDS = [
@@ -236,7 +233,12 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Optional subset of HOL-IMP theory basenames, e.g. AExp Big_Step.",
     )
-    parser.add_argument("--limit", type=int, default=None, help="Process only the first N theories.")
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        help="Process only the first N theories.",
+    )
     parser.add_argument(
         "--batch-size",
         type=int,
@@ -255,10 +257,7 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    logging.basicConfig(
-        level=logging.DEBUG if args.verbose else logging.INFO,
-        format="%(levelname)s %(name)s: %(message)s",
-    )
+    configure_logging(level="WARNING", enable_package_logs=False)
 
     working_dir = args.working_dir.resolve()
     output_path = (
@@ -280,7 +279,7 @@ def main() -> None:
         template_type_extraction_theory(src_thy, working_dir) for src_thy in source_theories
     ]
 
-    LOGGER.info("Extracting %d HOL-IMP theories", len(extraction_theories))
+    LOGGER.info("Extracting {} HOL-IMP theories", len(extraction_theories))
     with IsabelleConnector(
         name="hol-imp-template-types",
         working_directory=str(working_dir),
@@ -303,7 +302,7 @@ def main() -> None:
         records.extend(outcome_records(outcome))
 
     write_jsonl(output_path, records)
-    LOGGER.info("Wrote %d theorem records to %s", len(records), output_path)
+    LOGGER.info("Wrote {} theorem records to {}", len(records), output_path)
 
     if failed:
         print("\nFailed extraction theories:")

@@ -241,6 +241,76 @@ class AFPResolver(SessionResolver):
         return "HOL"
 
 
+class CombinedResolver(SessionResolver):
+    """Route to :class:`AFPResolver` or :class:`HOLResolver` based on theory name.
+
+    Routing is decided by checking whether the theory's top-level path
+    component (the AFP entry directory) is in a known set of AFP entry names.
+    Anything not in that set is resolved as a HOL theory.
+
+    The AFP entry set is most easily built from the AFP ROOT file::
+
+        r = CombinedResolver.from_afp_root(
+            afp_root_file="/path/to/AFP/thys/ROOT",
+            hol_root_file="/path/to/Isabelle/src/HOL/ROOT",  # optional
+        )
+        r("Category3/Functor")   # -> "Category3"  (AFP)
+        r("IMP/Big_Step")        # -> "HOL-IMP"    (HOL)
+
+    You can also pass the AFP entry names directly::
+
+        r = CombinedResolver(afp_entries={"Category3", "HOL-CSP", ...})
+    """
+
+    def __init__(
+        self,
+        afp_entries: set[str],
+        hol_root_file=None,
+    ) -> None:
+        self._afp_entries = afp_entries
+        self._hol = HOLResolver(root_file=hol_root_file)
+        self._afp = AFPResolver()
+
+    @classmethod
+    def from_afp_root(cls, afp_root_file, hol_root_file=None) -> "CombinedResolver":
+        """Build a resolver from an AFP ROOT file.
+
+        Parses *afp_root_file* to collect all top-level AFP entry directory
+        names, then constructs a :class:`CombinedResolver` using those as the
+        AFP entry set.
+        """
+        sessions_map = _parse_root_file(Path(afp_root_file))
+        # Top-level component of each in-dir recorded in the ROOT file
+        afp_entries = {d.split("/")[0] for d in sessions_map if d}
+        return cls(afp_entries, hol_root_file=hol_root_file)
+
+    @classmethod
+    def from_defaults(cls) -> "CombinedResolver":
+        """Build a resolver using the standard Isabelle and AFP ROOT files.
+
+        Expands ``$ISABELLE_HOME/src/HOL/ROOT`` and ``$AFP_BASE/thys/ROOT``
+        from the environment.  Raises :exc:`OSError` if either variable is
+        unset or the file does not exist.
+        """
+        import os
+
+        isabelle_home = os.environ.get("ISABELLE_HOME", "")
+        afp_base = os.environ.get("AFP_BASE", "")
+        hol_root = Path(isabelle_home) / "src" / "HOL" / "ROOT"
+        afp_root = Path(afp_base) / "thys" / "ROOT"
+        for p in (hol_root, afp_root):
+            if not p.exists():
+                raise OSError(f"ROOT file not found: {p}")
+        return cls.from_afp_root(afp_root_file=afp_root, hol_root_file=hol_root)
+
+    def __call__(self, theory: "Theory | str") -> str:
+        name = _theory_name(theory)
+        top = name.split("/", 1)[0].split(".", 1)[0]
+        if top in self._afp_entries:
+            return self._afp(theory)
+        return self._hol(theory)
+
+
 # ---------------------------------------------------------------------------
 # Module-level convenience singletons
 # ---------------------------------------------------------------------------
